@@ -30,7 +30,9 @@ public class Gremlin {
 
     private static final String PIXEL_LINK = "http://i.imgur.com/VYSxAyf.png";
 
-    public static void main(String... args) { new Gremlin(); }
+    public static void main(String... args) {
+        new Gremlin();
+    }
     // TODO: Remove if needed
     private JDA jdaInstance = null;
     private static Optional<CommandManager> commandManager = Optional.empty();

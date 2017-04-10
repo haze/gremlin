@@ -205,7 +205,7 @@ public class Music {
                 }
             });
             return new EmbedBuilder();
-        } else return Gremlin.easyAuthor("Now Playing...", guildMusicManager.player.getPlayingTrack() != null ? guildMusicManager.player.getPlayingTrack().getInfo().title : "None");
+        } else return Gremlin.easyAuthor("Now Playing...", guildMusicManager.player.getPlayingTrack() != null ? String.format("%s - [%s/%s]", guildMusicManager.player.getPlayingTrack().getInfo().title, Music.formatDuration(Duration.ofMillis(guildMusicManager.player.getPlayingTrack().getPosition())), Music.formatDuration(Duration.ofMillis(guildMusicManager.player.getPlayingTrack().getDuration()))): "None");
     }
 
 }
