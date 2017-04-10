@@ -31,7 +31,12 @@ public class Gremlin {
     private static final String PIXEL_LINK = "http://i.imgur.com/VYSxAyf.png";
 
     public static void main(String... args) {
-        new Gremlin();
+        if (args.length > 1) {
+            new Gremlin(args[0], args[1]);
+            return;
+        }
+        System.out.println("Missing necessary arguments, consult the documentation...");
+        System.exit(1);
     }
     // TODO: Remove if needed
     private JDA jdaInstance = null;
@@ -51,33 +56,19 @@ public class Gremlin {
         return new EmbedBuilder().setAuthor(header, "http://haze.pw/gremlin", PIXEL_LINK).setDescription(desc);
     }
 
-    private Pair<String, String> parseUserInfo() throws IOException {
-        final Properties prop = new Properties();
-        prop.load(new FileInputStream(new File("src/main/resources/ident.properties")));
-        return new Pair<>(prop.getProperty("CLIENT_SECRET"), prop.getProperty("CLIENT_TOKEN"));
-    }
-
-    private Gremlin() {
+    private Gremlin(String token, String secret) {
 
         getCommandManager().register(new Music());
         getCommandManager().register(new General());
         getCommandManager().register(new Fun());
 
-        Optional<Pair<String, String>> botInfo = Optional.empty();
-        try {
-            botInfo = Optional.of(parseUserInfo());
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(1);
-        }
 
-        final String clientToken = botInfo.get().getValue();
         // unused??
         // final String clientSecret = botInfo.get().getKey();
 
         try {
             this.jdaInstance = new JDABuilder(AccountType.BOT)
-                    .setToken(clientToken)
+                    .setToken(token)
                     .addListener(new MessageListener())
                     .addListener(new ChannelListener())
                     .buildAsync();
