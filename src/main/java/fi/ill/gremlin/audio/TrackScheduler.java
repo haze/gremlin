@@ -81,7 +81,7 @@ public class TrackScheduler extends AudioEventAdapter
             event.getChannel().sendMessage(new EmbedBuilder().setDescription(String.format("Now playing: **%s - %s** [%s]", curTrack.getInfo().title, curTrack.getInfo().author, Music.formatDuration(Duration.ofMillis(curTrack.getDuration())))).build());
         }
 
-        if(endReason == AudioTrackEndReason.FINISHED) {
+        if(endReason == AudioTrackEndReason.FINISHED && this.queue.isEmpty()) {
             event.getChannel().sendMessage(new EmbedBuilder().setDescription("Finished playing! Leaving...").build());
             event.getGuild().getAudioManager().setSendingHandler(null);
             event.getGuild().getAudioManager().closeAudioConnection();

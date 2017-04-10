@@ -32,7 +32,7 @@ public class Gremlin {
 
     public static void main(String... args) { new Gremlin(); }
     // TODO: Remove if needed
-    public JDA jdaInstance = null;
+    private JDA jdaInstance = null;
     private static Optional<CommandManager> commandManager = Optional.empty();
 
     public static CommandManager getCommandManager() {
