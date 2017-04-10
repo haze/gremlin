@@ -4,6 +4,7 @@ import fi.ill.gremlin.commands.Fun;
 import fi.ill.gremlin.commands.General;
 import fi.ill.gremlin.commands.Music;
 import fi.ill.gremlin.listener.ChannelListener;
+import fi.ill.gremlin.listener.LeaveListener;
 import fi.ill.gremlin.listener.MessageListener;
 import javafx.util.Pair;
 import net.dv8tion.jda.core.AccountType;
@@ -71,6 +72,7 @@ public class Gremlin {
                     .setToken(token)
                     .addListener(new MessageListener())
                     .addListener(new ChannelListener())
+                    .addListener(new LeaveListener())
                     .buildAsync();
             System.out.println(this.jdaInstance.asBot().getInviteUrl());
         } catch (LoginException | RateLimitedException e) {
