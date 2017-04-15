@@ -164,7 +164,7 @@ public class CommandManager extends MapManager<Method, Object> {
         } catch (Throwable t) {
             t.printStackTrace();
         }
-        if(joiner.toString().trim().isEmpty())
+        if (joiner.toString().trim().isEmpty())
             return "None";
         return joiner.toString();
     }
@@ -231,7 +231,7 @@ public class CommandManager extends MapManager<Method, Object> {
                             digit = digitClamp(param.getAnnotation(DigitClamp.class), str);
                         }
                         actualArguments.add(Optional.of(digit));
-                    } else if (getOptionalSuperType(param) == Integer.class && isFloat(arguments[i]) ) {
+                    } else if (getOptionalSuperType(param) == Integer.class && isFloat(arguments[i])) {
                         Integer digit = Math.round(Float.parseFloat(arguments[i]));
                         if (param.isAnnotationPresent(DigitClamp.class)) {
                             digit = Math.round(digitClamp(param.getAnnotation(DigitClamp.class), str));

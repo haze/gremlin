@@ -19,5 +19,6 @@ public @interface Command {
      * @return The catalyst
      */
     String[] value() default "command";
+
     String desc() default "no description provided";
 }

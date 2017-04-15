@@ -1,6 +1,5 @@
 package fi.ill.gremlin.commands;
 
-import net.dv8tion.jda.core.entities.VoiceChannel;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import pw.haze.command.Command;
 
@@ -12,9 +11,9 @@ import java.util.Random;
  * @since 4/8/2017
  */
 public class Fun {
-    /*@Command("carousel")
+    @Command("carousel")
     public void carousel(MessageReceivedEvent event, Optional<Integer> times) {
-        if(event.getGuild().getVoiceChannels().parallelStream().filter(x -> x.getMembers().parallelStream().filter(z -> z.getUser() == event.getAuthor()).findAny().isPresent()).findAny().isPresent())
+        if (event.getGuild().getVoiceChannels().parallelStream().anyMatch(x -> x.getMembers().parallelStream().anyMatch(z -> z.getUser() == event.getAuthor())))
             new Thread(() -> {
                 for (int i = 0; i < times.orElse(100); i++) {
                     try {
@@ -25,5 +24,5 @@ public class Fun {
                     }
                 }
             }).start();
-    }*/
+    }
 }

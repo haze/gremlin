@@ -6,22 +6,15 @@ import fi.ill.gremlin.commands.Music;
 import fi.ill.gremlin.listener.ChannelListener;
 import fi.ill.gremlin.listener.LeaveListener;
 import fi.ill.gremlin.listener.MessageListener;
-import javafx.util.Pair;
 import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
-import net.dv8tion.jda.core.entities.Member;
-import net.dv8tion.jda.core.entities.User;
 import net.dv8tion.jda.core.exceptions.RateLimitedException;
 import pw.haze.command.CommandManager;
 
 import javax.security.auth.login.LoginException;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.util.Optional;
-import java.util.Properties;
 
 /**
  * @author haze
@@ -29,35 +22,13 @@ import java.util.Properties;
  */
 public class Gremlin {
 
-    private static final String PIXEL_LINK = "http://i.imgur.com/VYSxAyf.png";
-
-    public static void main(String... args) {
-        if (args.length > 1) {
-            new Gremlin(args[0], args[1]);
-            return;
-        }
-        System.out.println("Missing necessary arguments, consult the documentation...");
-        System.exit(1);
-    }
+    public static final String PIXEL_LINK = "http://i.imgur.com/VYSxAyf.png";
+    private static Optional<CommandManager> commandManager = Optional.empty();
     // TODO: Remove if needed
     private JDA jdaInstance = null;
-    private static Optional<CommandManager> commandManager = Optional.empty();
+    private Gremlin(String token, String secret, String yt_api) {
 
-    public static CommandManager getCommandManager() {
-        if(!commandManager.isPresent())
-            commandManager = Optional.of(new CommandManager(">"));
-        return commandManager.get();
-    }
-
-    public static EmbedBuilder embedDesc(String x) { return new EmbedBuilder().setDescription(x); }
-
-    public static EmbedBuilder emptyEmbed() { return embedDesc(""); }
-
-    public static EmbedBuilder easyAuthor(String header, String desc) {
-        return new EmbedBuilder().setAuthor(header, "http://haze.pw/gremlin", PIXEL_LINK).setDescription(desc);
-    }
-
-    private Gremlin(String token, String secret) {
+        Music.API_KEY = yt_api;
 
         getCommandManager().register(new Music());
         getCommandManager().register(new General());
@@ -79,6 +50,34 @@ public class Gremlin {
             e.printStackTrace();
             System.exit(1);
         }
+    }
+
+    public static void main(String... args) {
+        System.out.println(args.length);
+        if (args.length == 3) {
+            new Gremlin(args[0], args[1], args[2]);
+            return;
+        }
+        System.out.println("Missing necessary arguments, consult the documentation...");
+        System.exit(1);
+    }
+
+    public static CommandManager getCommandManager() {
+        if (!commandManager.isPresent())
+            commandManager = Optional.of(new CommandManager(">"));
+        return commandManager.get();
+    }
+
+    public static EmbedBuilder embedDesc(String x) {
+        return new EmbedBuilder().setDescription(x);
+    }
+
+    public static EmbedBuilder emptyEmbed() {
+        return embedDesc("");
+    }
+
+    public static EmbedBuilder easyAuthor(String header, String desc) {
+        return new EmbedBuilder().setAuthor(header, "http://haze.pw/gremlin", PIXEL_LINK).setDescription(desc);
     }
 
 }

@@ -48,14 +48,14 @@ public class General {
 
     @Command(value = {"purge", "remove"}, desc = "purge x amount of messages")
     public EmbedBuilder purgeMessages(MessageReceivedEvent event, @DigitClamp(min = 1, max = 100) Optional<Integer> amount) {
-        if(amount.isPresent()) {
+        if (amount.isPresent()) {
             event.getTextChannel().deleteMessages(event.getChannel().getHistoryAround(event.getMessage(), amount.get()).complete().getRetrievedHistory()).queue();
         } else {
             List<PermissionOverride> perms = event.getTextChannel().getRolePermissionOverrides();
             String name = event.getTextChannel().getName();
             event.getTextChannel().delete().queue();
             ChannelAction ac = event.getGuild().getController().createTextChannel(name);
-            for(PermissionOverride perm: perms)
+            for (PermissionOverride perm : perms)
                 ac = ac.addPermissionOverride(perm.getRole(), perm.getAllowedRaw(), perm.getDeniedRaw());
             ac.queue();
         }
