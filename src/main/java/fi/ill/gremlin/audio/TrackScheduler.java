@@ -4,11 +4,14 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
+import fi.ill.gremlin.commands.AuthoredAudioTrack;
 import fi.ill.gremlin.commands.Music;
+import fi.ill.gremlin.commands.SkipData;
 import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
@@ -20,7 +23,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public class TrackScheduler extends AudioEventAdapter {
     final AudioPlayer player;
-    public Queue<AudioTrack> queue;
+    public Queue<AuthoredAudioTrack> queue;
+    public AuthoredAudioTrack current;
     public MessageReceivedEvent event;
     AudioTrack lastTrack;
     private boolean repeating = false;
@@ -34,19 +38,15 @@ public class TrackScheduler extends AudioEventAdapter {
         this.queue = new ConcurrentLinkedQueue<>();
     }
 
-    /**
-     * Add the next track to queue or play right away if nothing is in the queue.
-     *
-     * @param track The track to play or add to queue.
-     */
-    public void queue(AudioTrack track) {
 
-        // Calling startTrack with the noInterrupt set to true will start the track only if nothing is currently playing. If
-        // something is playing, it returns false and does nothing. In that case the player was already playing so this
-        // track goes to the queue instead.
-        Boolean val = player.startTrack(track, true);
+    public void queue(AuthoredAudioTrack info) {
+        Music.getSkipMap().put(info, new SkipData(Music.GLOBAL_SKIPS_REQUIRED, new ArrayList<>()));
+        Music.getSkipMap().entrySet().parallelStream().forEach(e -> System.out.printf("%s - %s\n", e.getKey(), e.getValue()));
+        Boolean val = player.startTrack(info.getTrack(), true);
         if (!val) {
-            queue.add(track);
+            queue.add(info);
+        } else {
+            this.current = info;
         }
     }
 
@@ -56,7 +56,15 @@ public class TrackScheduler extends AudioEventAdapter {
     public void nextTrack() {
         // Start the next track, regardless of if something is already playing or not. In case queue was empty, we are
         // giving null to startTrack, which is a valid argument and will simply stop the player.
-        player.startTrack(queue.poll(), false);
+        AuthoredAudioTrack data = queue.poll();
+        if (data != null) {
+            Music.getSkipMap().remove(this.current);
+            player.startTrack(data.getTrack(), false);
+            this.current = data;
+        } else {
+            this.current = null;
+            player.startTrack(null, false);
+        }
     }
 
     @Override

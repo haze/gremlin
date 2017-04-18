@@ -9,6 +9,7 @@ import pw.haze.command.Command;
 import pw.haze.command.utility.DigitClamp;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -39,7 +40,7 @@ public class General {
             if (!method.isPresent())
                 return Gremlin.easyAuthor("Gremlin Help Desk", String.format("Command \"**%s**\" not found", command.get()));
             Command cmd = method.get().getAnnotation(Command.class);
-            return Gremlin.easyAuthor(cmd.value()[0], String.format("```Markdown\n%s\nusage: %s```", cmd.desc(), Gremlin.getCommandManager().getUsage(method.get())));
+            return Gremlin.easyAuthor(cmd.value()[0], String.format("```Markdown\n%s\nusage: %s\naliases: %s```", cmd.desc(), Gremlin.getCommandManager().getUsage(method.get()), Arrays.toString(cmd.value())));
         }
         final StringBuilder builder = new StringBuilder();
         Gremlin.getCommandManager().getContents().keySet().stream().forEach(m -> builder.append(String.format("%s - %s \n", m.getAnnotation(Command.class).value()[0], encaseAndJoin(Gremlin.getCommandManager().getUsage(m).split(" ")))));

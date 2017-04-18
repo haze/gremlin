@@ -22,6 +22,8 @@ import net.dv8tion.jda.core.entities.VoiceChannel;
 import net.dv8tion.jda.core.entities.impl.GameImpl;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.managers.AudioManager;
+import org.joda.time.format.PeriodFormatter;
+import org.joda.time.format.PeriodFormatterBuilder;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -36,20 +38,26 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
-/**
- * @author haze
- * @since 3/26/2017
- */
 public class Music {
 
     public static final Map<String, GuildMusicManager> musicManagerMap = new HashMap<>();
     public static String API_KEY = "n/a";
     public static Optional<Member> following = Optional.empty();
+    public static Optional<Member> volumeLock = Optional.empty();
+    public static Integer GLOBAL_SKIPS_REQUIRED = 2;
     private static Integer volume = 15;
+    private static PeriodFormatter formatter = new PeriodFormatterBuilder()
+            .appendDays().appendSuffix("d ")
+            .appendHours().appendSuffix("h ")
+            .appendMinutes().appendSuffix("m")
+            .appendSeconds().appendSuffix("s")
+            .toFormatter();
+    private static HashMap<AuthoredAudioTrack, SkipData> skipMap = new HashMap<>();
     private AudioPlayerManager audioPlayerManager;
 
     public Music() {
@@ -61,6 +69,11 @@ public class Music {
         audioPlayerManager.registerSourceManager(new TwitchStreamAudioSourceManager());
         audioPlayerManager.registerSourceManager(new HttpAudioSourceManager());
         audioPlayerManager.registerSourceManager(new LocalAudioSourceManager());
+
+    }
+
+    public static HashMap<AuthoredAudioTrack, SkipData> getSkipMap() {
+        return skipMap;
     }
 
     // thanks, Jon Skeet (http://stackoverflow.com/a/266846)
@@ -79,19 +92,36 @@ public class Music {
         return musicManagerMap;
     }
 
+    @Command(value = {"vlock"}, desc = "locks volume changing to a certain user")
+    public EmbedBuilder lockVolume(MessageReceivedEvent event) {
+        if (volumeLock.isPresent()) {
+            if (event.getMember() == volumeLock.get()) {
+                volumeLock = Optional.empty();
+                return Gremlin.embedDesc("Released the volume lock.");
+            } else return Gremlin.embedDesc("Cannot release a volume lock that does not belond to you.");
+        } else {
+            volumeLock = Optional.of(event.getMember());
+            return Gremlin.embedDesc(String.format("Volume locked to %s.", event.getAuthor().getAsMention()));
+        }
+    }
+
     @Command(value = {"volume", "vol", "v"}, desc = "set the volume for the music bot")
     public EmbedBuilder setVolume(MessageReceivedEvent event, @DigitClamp(max = 100F) Optional<Integer> newVolume) {
         if (newVolume.isPresent()) {
-            Music.volume = newVolume.get();
-            GuildMusicManager man = musicManagerMap.get(event.getGuild().getId());
-            if (man != null)
-                man.player.setVolume(Music.volume);
+            if (!volumeLock.isPresent() || volumeLock.get() == event.getMember()) {
+                Music.volume = newVolume.get();
+                GuildMusicManager man = musicManagerMap.get(event.getGuild().getId());
+                if (man != null)
+                    man.player.setVolume(Music.volume);
+            } else {
+                return Gremlin.embedDesc(String.format("Volume is locked to %s!", volumeLock.get().getAsMention()));
+            }
         }
         return new EmbedBuilder().setDescription(String.format("%s %s%%", newVolume.isPresent() ? "Set volume to" : "Current volume is", new DecimalFormat("###.#")
                 .format(Music.volume)));
     }
 
-    @Command(value = {"follow"}, desc = "set the music bot to follow  you")
+    @Command(value = {"follow"}, desc = "set the music bot to follow you")
     public EmbedBuilder setFollow(MessageReceivedEvent event) {
         if (following.isPresent()) {
             if (following.get() == event.getMember()) {
@@ -105,6 +135,24 @@ public class Music {
             event.getJDA().getPresence().setGame(new GameImpl("Following " + following.get().getNickname(), null, Game.GameType.TWITCH));
             return Gremlin.embedDesc("I've started following " + following.get().getAsMention() + ".");
         }
+    }
+
+    @Command(value = {"to", "goto"}, desc = "scrub to a certain point in a song.")
+    public EmbedBuilder scrub(MessageReceivedEvent event, String pos) {
+        if (musicManagerMap.containsKey(event.getGuild().getId())) {
+            GuildMusicManager guildMusicManager = musicManagerMap.get(event.getGuild().getId());
+            if (guildMusicManager.player.getPlayingTrack() != null) {
+                final long millis = formatter.parsePeriod(pos).toStandardDuration().getMillis();
+                AudioTrack currentTrack = guildMusicManager.player.getPlayingTrack();
+                if (millis > currentTrack.getDuration())
+                    return Gremlin.embedDesc("Duration longer than track length!");
+                if (currentTrack.isSeekable())
+                    currentTrack.setPosition(millis);
+                else
+                    return Gremlin.embedDesc("Cannot seek this filetype. (Probably a stream...)");
+                return Gremlin.emptyEmbed();
+            } else return Gremlin.embedDesc("There is no currently playing track.");
+        } else return Gremlin.embedDesc("I have no music manager setup.");
     }
 
     @Command(value = {"play", "q", "p"}, desc = "music ultra-command. see p (help) for more.")
@@ -132,18 +180,23 @@ public class Music {
                         return Gremlin.embedDesc("Player is now paused.");
                     }
                 }
+                case "q":
                 case "queue": {
                     final StringBuilder builder = new StringBuilder();
-                    final AudioTrack[] queue = guildMusicManager.scheduler.queue.toArray(new AudioTrack[]{});
+                    final AuthoredAudioTrack[] queue = guildMusicManager.scheduler.queue.toArray(new AuthoredAudioTrack[]{});
                     IntStream.range(0, guildMusicManager.scheduler.queue.size()).forEach(ind -> {
-                        AudioTrack tr = queue[ind];
-                        builder.append(String.format("[%s] **%s** - [%s]\n", ind + 1, tr.getInfo().title, formatDuration(Duration.ofMillis(tr.getDuration()))));
+                        AuthoredAudioTrack tr = queue[ind];
+                        builder.append(String.format("[%s] **%s** - [%s]\n", ind + 1, tr.getTrack().getInfo().title, formatDuration(Duration.ofMillis(tr.getTrack().getDuration()))));
                     });
                     return Gremlin.easyAuthor(String.format("Queue [%s]", guildMusicManager.scheduler.queue.size()), String.format("%s", guildMusicManager.scheduler.queue.size() == 0 ? "Empty" : builder.toString()));
                 }
                 case "stop": {
                     guildMusicManager.player.stopTrack();
                     return Gremlin.embedDesc("Stopped playing.");
+                }
+                case "start": {
+                    if (guildMusicManager.scheduler.queue.isEmpty())
+                        return Gremlin.embedDesc("Nothing in the queue.");
                 }
                 case "join": {
                     am.setSendingHandler(guildMusicManager.sendHandler);
@@ -162,7 +215,25 @@ public class Music {
                     return Gremlin.embedDesc(String.format("Repeat %s", guildMusicManager.scheduler.isRepeating() ? "on" : "off"));
                 }
                 case "skip": {
-                    guildMusicManager.scheduler.nextTrack();
+                    final SkipData data = getSkipMap().get(guildMusicManager.scheduler.current);
+                    final AuthoredAudioTrack trackData = guildMusicManager.scheduler.current;
+                    final List<Member> voters = data.getVoters();
+                    if (following.get() == event.getMember() || trackData.getAuthor() == event.getMember())
+                        guildMusicManager.scheduler.nextTrack();
+                    else {
+                        if (!voters.contains(event.getMember())) {
+                            data.getVoters().add(event.getMember());
+                            data.setVotesLeft(data.getVotesLeft() - 1);
+                            if (data.getVotesLeft() <= 0) {
+                                guildMusicManager.scheduler.nextTrack();
+                                return Gremlin.embedDesc("Skipped!");
+                            } else {
+                                return Gremlin.embedDesc(String.format("Skips needed left: %s", data.getVotesLeft()));
+                            }
+                        } else {
+                            return Gremlin.embedDesc("You already voted!");
+                        }
+                    }
                     return Gremlin.emptyEmbed();
                 }
                 case "leave": {
@@ -210,7 +281,7 @@ public class Music {
             load(vc, am, event, guildMusicManager, track.get());
             return new EmbedBuilder();
         } else
-            return new EmbedBuilder().setAuthor("Now Playing...", guildMusicManager.player.getPlayingTrack().getInfo().uri, Gremlin.PIXEL_LINK).setDescription(guildMusicManager.player.getPlayingTrack() != null ? String.format("%s - [%s/%s]", guildMusicManager.player.getPlayingTrack().getInfo().title, Music.formatDuration(Duration.ofMillis(guildMusicManager.player.getPlayingTrack().getPosition())), Music.formatDuration(Duration.ofMillis(guildMusicManager.player.getPlayingTrack().getDuration()))) : "None");
+            return new EmbedBuilder().setAuthor("Now Playing...", guildMusicManager.player.getPlayingTrack() == null ? "http://youtube.com" : guildMusicManager.player.getPlayingTrack().getInfo().uri, Gremlin.PIXEL_LINK).setDescription(guildMusicManager.player.getPlayingTrack() != null ? String.format("%s - [%s/%s]", guildMusicManager.player.getPlayingTrack().getInfo().title, Music.formatDuration(Duration.ofMillis(guildMusicManager.player.getPlayingTrack().getPosition())), Music.formatDuration(Duration.ofMillis(guildMusicManager.player.getPlayingTrack().getDuration()))) : "None");
     }
 
     private void load(VoiceChannel vc, AudioManager am, MessageReceivedEvent event, GuildMusicManager guildMusicManager, String track_url) {
@@ -219,17 +290,17 @@ public class Music {
             public void trackLoaded(AudioTrack audioTrack) {
                 if (guildMusicManager.scheduler.queue.isEmpty() && guildMusicManager.player.getPlayingTrack() == null) {
                     event.getChannel().sendMessage(new EmbedBuilder().setDescription(String.format("Loaded track **%s - %s** [%s]", audioTrack.getInfo().title, audioTrack.getInfo().author, formatDuration(Duration.ofMillis(audioTrack.getDuration())))).build()).queue();
-                } else {
+                } else
                     event.getChannel().sendMessage(new EmbedBuilder().setDescription(String.format("Queued track **%s - %s** [%s]", audioTrack.getInfo().title, audioTrack.getInfo().author, formatDuration(Duration.ofMillis(audioTrack.getDuration())))).build()).queue();
-                }
-                guildMusicManager.scheduler.queue(audioTrack);
+                guildMusicManager.scheduler.queue(new AuthoredAudioTrack(audioTrack, event.getMember()));
                 am.setSendingHandler(guildMusicManager.sendHandler);
-                am.openAudioConnection(vc);
+                if (!am.isConnected())
+                    am.openAudioConnection(vc);
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                audioPlaylist.getTracks().forEach(guildMusicManager.scheduler::queue);
+                audioPlaylist.getTracks().parallelStream().map(x -> new AuthoredAudioTrack(x, event.getMember())).forEach(guildMusicManager.scheduler::queue);
                 event.getChannel().sendMessage(new EmbedBuilder().setDescription(String.format("Loaded playlist of %s items.", audioPlaylist.getTracks().size())).build()).queue();
                 am.setSendingHandler(guildMusicManager.sendHandler);
                 am.openAudioConnection(vc);

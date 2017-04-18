@@ -17,6 +17,7 @@ public class ChannelListener extends ListenerAdapter {
             if (manager.player.getPlayingTrack() != null && event.getChannelLeft().getMembers().size() == 1) {
                 event.getGuild().getAudioManager().setSendingHandler(null);
                 event.getGuild().getAudioManager().closeAudioConnection();
+                System.out.println("soprano.");
             }
 
             if (Music.following.isPresent() && event.getMember() == Music.following.get()) {
